@@ -1,5 +1,6 @@
 # Environment variables
 .env
+!.env.example
 
 # Python
 __pycache__/
@@ -48,4 +49,3 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
-.env*
