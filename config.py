@@ -20,10 +20,12 @@ class Config:
     SESSION_TYPE = 'filesystem'
     SESSION_PERMANENT = False
     SESSION_USE_SIGNER = True
-    # For cross-origin requests (localhost → Railway), we need None
-    SESSION_COOKIE_SECURE = True  # Required for SameSite=None
-    SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = 'None'  # Allow cross-origin cookies
+    
+    # Allow cross-origin sessions (localhost → Railway for testing)
+    # In production with both on HTTPS, these settings are secure
+    SESSION_COOKIE_SECURE = os.getenv('FLASK_ENV') == 'production'  # False for Railway when accessed from localhost
+    SESSION_COOKIE_HTTPONLY = False  # Allow JavaScript access for cross-origin
+    SESSION_COOKIE_SAMESITE = None  # Allow cross-origin cookies
     SESSION_COOKIE_DOMAIN = None  # Don't restrict domain
     
     # MongoDB Configuration

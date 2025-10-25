@@ -8,6 +8,8 @@ from services.order_service import OrderService
 from services.database_service import DatabaseService
 from services.warranty_service import WarrantyService
 from services.auth_service import AuthService, require_auth
+from services.token_auth_service import TokenAuthService, require_token_auth
+from services.hybrid_auth import require_hybrid_auth
 import logging
 
 # Configure logging
@@ -49,14 +51,16 @@ order_service = OrderService()
 db_service = None
 warranty_service = None
 auth_service = None
+token_auth_service = None
 
 def initialize_services():
-    global db_service, warranty_service, auth_service
+    global db_service, warranty_service, auth_service, token_auth_service
     try:
         config = Config()
         db_service = DatabaseService(config)
         warranty_service = WarrantyService(db_service)
         auth_service = AuthService(db_service)
+        token_auth_service = TokenAuthService(db_service, config.SECRET_KEY)
         logger.info("All services initialized successfully")
         return True
     except Exception as e:
@@ -143,9 +147,9 @@ def create_order():
 
 @app.route('/api/admin/login', methods=['POST'])
 def admin_login():
-    """Admin login endpoint"""
+    """Admin login endpoint - supports both session and token auth"""
     try:
-        if not auth_service:
+        if not auth_service or not token_auth_service:
             return jsonify({
                 'success': False,
                 'message': 'Authentication service not available'
@@ -159,26 +163,49 @@ def admin_login():
                 'message': 'Username and password are required'
             }), 400
         
-        # Authenticate user
-        auth_result = auth_service.authenticate_admin(
-            credentials['username'],
-            credentials['password']
-        )
+        # Check if client wants token auth (for cross-origin)
+        use_token = request.headers.get('X-Auth-Type') == 'token'
         
-        if auth_result['success']:
-            # Create session
-            auth_service.create_session(auth_result['user'])
+        if use_token:
+            # Token-based auth for cross-origin
+            auth_result = token_auth_service.authenticate_admin(
+                credentials['username'],
+                credentials['password']
+            )
             
-            return jsonify({
-                'success': True,
-                'message': auth_result['message'],
-                'user': auth_result['user']
-            }), 200
+            if auth_result['success']:
+                return jsonify({
+                    'success': True,
+                    'message': auth_result['message'],
+                    'token': auth_result['token'],
+                    'user': auth_result['user']
+                }), 200
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': auth_result['error']
+                }), 401
         else:
-            return jsonify({
-                'success': False,
-                'message': auth_result['error']
-            }), 401
+            # Session-based auth (original)
+            auth_result = auth_service.authenticate_admin(
+                credentials['username'],
+                credentials['password']
+            )
+            
+            if auth_result['success']:
+                # Create session
+                auth_service.create_session(auth_result['user'])
+                
+                return jsonify({
+                    'success': True,
+                    'message': auth_result['message'],
+                    'user': auth_result['user']
+                }), 200
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': auth_result['error']
+                }), 401
             
     except Exception as e:
         logger.error(f"Error during admin login: {str(e)}")
@@ -216,15 +243,26 @@ def admin_logout():
 
 @app.route('/api/admin/check-auth', methods=['GET'])
 def check_auth():
-    """Check if user is authenticated"""
+    """Check if user is authenticated - supports both session and token"""
     try:
-        if not auth_service:
+        if not auth_service or not token_auth_service:
             return jsonify({
                 'success': False,
                 'authenticated': False,
                 'message': 'Authentication service not available'
             }), 503
         
+        # Check for token auth first
+        token = token_auth_service.get_token_from_request()
+        if token:
+            result = token_auth_service.verify_token(token)
+            return jsonify({
+                'success': True,
+                'authenticated': result['success'],
+                'user': result.get('user') if result['success'] else None
+            }), 200
+        
+        # Fall back to session auth
         is_authenticated = auth_service.is_authenticated()
         current_user = auth_service.get_current_user() if is_authenticated else None
         
@@ -244,7 +282,7 @@ def check_auth():
         }), 500
 
 @app.route('/api/warranties', methods=['GET'])
-@require_auth
+@require_hybrid_auth
 def get_warranties():
     """Get all warranty records"""
     try:
@@ -270,7 +308,7 @@ def get_warranties():
         }), 500
 
 @app.route('/api/warranties/<serial_number>', methods=['GET'])
-@require_auth
+@require_hybrid_auth
 def get_warranty(serial_number):
     """Get warranty by serial number"""
     try:
@@ -296,7 +334,7 @@ def get_warranty(serial_number):
         }), 500
 
 @app.route('/api/warranties', methods=['POST'])
-@require_auth
+@require_hybrid_auth
 def create_warranty():
     """Create a new warranty record"""
     try:
@@ -330,7 +368,7 @@ def create_warranty():
         }), 500
 
 @app.route('/api/warranties/<warranty_id>', methods=['PUT'])
-@require_auth
+@require_hybrid_auth
 def update_warranty(warranty_id):
     """Update an existing warranty record"""
     try:
