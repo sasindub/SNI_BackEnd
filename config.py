@@ -13,14 +13,15 @@ class Config:
     
     # Flask Configuration
     SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key-here-sni-laptops-2025')
-    DEBUG = os.getenv('FLASK_DEBUG', 'True').lower() == 'true'
+    DEBUG = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
     PORT = int(os.getenv('PORT', 5000))
     
     # Session Configuration
     SESSION_TYPE = 'filesystem'
     SESSION_PERMANENT = False
     SESSION_USE_SIGNER = True
-    SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
+    # Auto-detect HTTPS for secure cookies (Railway uses HTTPS)
+    SESSION_COOKIE_SECURE = os.getenv('FLASK_ENV') == 'production'
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
     
