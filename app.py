@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 from flask_session import Session
+from werkzeug.middleware.proxy_fix import ProxyFix
 from config import Config
 from services.email_service import EmailService
 from services.order_service import OrderService
@@ -17,17 +18,28 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# Fix for Railway's reverse proxy
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
 # Initialize session
 Session(app)
 
-# Enable CORS with credentials support
+# Enable CORS - simplified and more permissive
 CORS(app, 
-     resources={r"/api/*": {
-         "origins": ["http://localhost:3000", "http://localhost:5000"],
-         "allow_headers": ["Content-Type", "Authorization"],
-         "supports_credentials": True,
-         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-     }})
+     origins=[
+         "http://localhost:3000",
+         "http://localhost:5000",
+         "https://snibackend-production.up.railway.app",
+         "http://snibackend-production.up.railway.app",
+         "https://www.snl.lk",
+         "http://www.snl.lk",
+         "https://snl.lk",
+         "http://snl.lk"
+     ],
+     supports_credentials=True,
+     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+     expose_headers=["Content-Type", "Authorization"])
 
 # Initialize services
 email_service = EmailService()
