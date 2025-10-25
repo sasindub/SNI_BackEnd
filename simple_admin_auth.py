@@ -8,15 +8,28 @@ import bcrypt
 import datetime
 from functools import wraps
 from flask import request, jsonify
-from services.database_service import DatabaseService
-from config import Config
 
-# Initialize once
-config = Config()
-db_service = DatabaseService(config)
-admin_users = db_service.get_collection('admin_users')
+# Global variables - will be initialized on first use
+_admin_users = None
+_secret_key = None
 
-SECRET_KEY = config.SECRET_KEY
+def get_admin_users():
+    """Lazy initialization of admin_users collection"""
+    global _admin_users, _secret_key
+    if _admin_users is None:
+        from services.database_service import DatabaseService
+        from config import Config
+        config = Config()
+        db_service = DatabaseService(config)
+        _admin_users = db_service.get_collection('admin_users')
+        _secret_key = config.SECRET_KEY
+    return _admin_users
+
+def get_secret_key():
+    """Get SECRET_KEY"""
+    if _secret_key is None:
+        get_admin_users()  # This will initialize both
+    return _secret_key
 
 def create_token(username):
     """Create JWT token"""
@@ -24,12 +37,12 @@ def create_token(username):
         'username': username,
         'exp': datetime.datetime.utcnow() + datetime.timedelta(days=7)  # 7 days expiry
     }
-    return jwt.encode(payload, SECRET_KEY, algorithm='HS256')
+    return jwt.encode(payload, get_secret_key(), algorithm='HS256')
 
 def verify_token(token):
     """Verify JWT token"""
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        payload = jwt.decode(token, get_secret_key(), algorithms=['HS256'])
         return {'valid': True, 'username': payload['username']}
     except jwt.ExpiredSignatureError:
         return {'valid': False, 'error': 'Token expired'}
@@ -40,6 +53,7 @@ def admin_login(username, password):
     """Authenticate admin and return token"""
     try:
         # Find user
+        admin_users = get_admin_users()
         user = admin_users.find_one({'username': username})
         if not user:
             return {'success': False, 'message': 'Invalid credentials'}

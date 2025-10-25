@@ -4,17 +4,24 @@ Simple admin routes with JWT authentication
 
 from flask import Blueprint, request, jsonify
 from simple_admin_auth import admin_login, require_token
-from services.warranty_service import WarrantyService
-from services.database_service import DatabaseService
-from config import Config
 
 # Create blueprint
 admin_bp = Blueprint('admin', __name__, url_prefix='/api/admin')
 
-# Initialize services
-config = Config()
-db_service = DatabaseService(config)
-warranty_service = WarrantyService(db_service)
+# Global variables - lazy initialization
+_warranty_service = None
+
+def get_warranty_service():
+    """Lazy initialization of warranty service"""
+    global _warranty_service
+    if _warranty_service is None:
+        from services.warranty_service import WarrantyService
+        from services.database_service import DatabaseService
+        from config import Config
+        config = Config()
+        db_service = DatabaseService(config)
+        _warranty_service = WarrantyService(db_service)
+    return _warranty_service
 
 @admin_bp.route('/login', methods=['POST', 'OPTIONS'])
 def login():
@@ -67,6 +74,7 @@ def get_warranties():
         return '', 200
     
     try:
+        warranty_service = get_warranty_service()
         result = warranty_service.get_all_warranties()
         return jsonify(result), 200 if result['success'] else 500
     except Exception as e:
@@ -80,6 +88,7 @@ def create_warranty():
         return '', 200
     
     try:
+        warranty_service = get_warranty_service()
         data = request.get_json()
         result = warranty_service.create_warranty(data)
         return jsonify(result), 201 if result['success'] else 400
@@ -94,6 +103,7 @@ def update_warranty(warranty_id):
         return '', 200
     
     try:
+        warranty_service = get_warranty_service()
         data = request.get_json()
         result = warranty_service.update_warranty(warranty_id, data)
         return jsonify(result), 200 if result['success'] else 400
