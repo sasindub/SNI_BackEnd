@@ -16,15 +16,24 @@ app.config.from_object(Config)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 # Simple CORS - allow everything for admin routes
-CORS(app, resources={
-    r"/api/admin/*": {
-        "origins": "*",  # Allow all origins for testing
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"],
-        "expose_headers": ["Content-Type"],
-        "supports_credentials": False  # No cookies needed!
-    }
-})
+CORS(app, 
+     resources={r"/api/admin/*": {"origins": "*"}},
+     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+     expose_headers=["Content-Type"],
+     supports_credentials=False,
+     send_wildcard=True,
+     always_send=True)
+
+# Handle OPTIONS requests globally
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        return response
 
 # Register admin blueprint
 app.register_blueprint(admin_bp)
