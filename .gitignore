@@ -46,6 +46,9 @@ logs/
 *.db
 *.sqlite3
 
+# Flask sessions
+flask_session/
+
 # OS
 .DS_Store
 Thumbs.db

@@ -1,8 +1,12 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session
 from flask_cors import CORS
+from flask_session import Session
 from config import Config
 from services.email_service import EmailService
 from services.order_service import OrderService
+from services.database_service import DatabaseService
+from services.warranty_service import WarrantyService
+from services.auth_service import AuthService, require_auth
 import logging
 
 # Configure logging
@@ -13,12 +17,46 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Enable CORS for all origins
-CORS(app, origins=['*'])
+# Initialize session
+Session(app)
+
+# Enable CORS with credentials support
+CORS(app, 
+     resources={r"/api/*": {
+         "origins": ["http://localhost:3000", "http://localhost:5000"],
+         "allow_headers": ["Content-Type", "Authorization"],
+         "supports_credentials": True,
+         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+     }})
 
 # Initialize services
 email_service = EmailService()
 order_service = OrderService()
+
+# Initialize database and related services
+db_service = None
+warranty_service = None
+auth_service = None
+
+def initialize_services():
+    global db_service, warranty_service, auth_service
+    try:
+        config = Config()
+        db_service = DatabaseService(config)
+        warranty_service = WarrantyService(db_service)
+        auth_service = AuthService(db_service)
+        logger.info("All services initialized successfully")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to initialize services: {str(e)}")
+        logger.error("Backend will run in limited mode - warranty features will be unavailable")
+        return False
+
+# Try to initialize services
+try:
+    initialize_services()
+except:
+    logger.warning("Services initialization deferred")
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -85,6 +123,228 @@ def create_order():
             
     except Exception as e:
         logger.error(f"Error creating order: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error',
+            'error': str(e)
+        }), 500
+
+@app.route('/api/admin/login', methods=['POST'])
+def admin_login():
+    """Admin login endpoint"""
+    try:
+        if not auth_service:
+            return jsonify({
+                'success': False,
+                'message': 'Authentication service not available'
+            }), 503
+        
+        credentials = request.get_json()
+        
+        if not credentials or 'username' not in credentials or 'password' not in credentials:
+            return jsonify({
+                'success': False,
+                'message': 'Username and password are required'
+            }), 400
+        
+        # Authenticate user
+        auth_result = auth_service.authenticate_admin(
+            credentials['username'],
+            credentials['password']
+        )
+        
+        if auth_result['success']:
+            # Create session
+            auth_service.create_session(auth_result['user'])
+            
+            return jsonify({
+                'success': True,
+                'message': auth_result['message'],
+                'user': auth_result['user']
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'message': auth_result['error']
+            }), 401
+            
+    except Exception as e:
+        logger.error(f"Error during admin login: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error',
+            'error': str(e)
+        }), 500
+
+@app.route('/api/admin/logout', methods=['POST'])
+@require_auth
+def admin_logout():
+    """Admin logout endpoint"""
+    try:
+        if not auth_service:
+            return jsonify({
+                'success': False,
+                'message': 'Authentication service not available'
+            }), 503
+        
+        auth_service.destroy_session()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Logout successful'
+        }), 200
+            
+    except Exception as e:
+        logger.error(f"Error during admin logout: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error',
+            'error': str(e)
+        }), 500
+
+@app.route('/api/admin/check-auth', methods=['GET'])
+def check_auth():
+    """Check if user is authenticated"""
+    try:
+        if not auth_service:
+            return jsonify({
+                'success': False,
+                'authenticated': False,
+                'message': 'Authentication service not available'
+            }), 503
+        
+        is_authenticated = auth_service.is_authenticated()
+        current_user = auth_service.get_current_user() if is_authenticated else None
+        
+        return jsonify({
+            'success': True,
+            'authenticated': is_authenticated,
+            'user': current_user
+        }), 200
+            
+    except Exception as e:
+        logger.error(f"Error checking authentication: {str(e)}")
+        return jsonify({
+            'success': False,
+            'authenticated': False,
+            'message': 'Internal server error',
+            'error': str(e)
+        }), 500
+
+@app.route('/api/warranties', methods=['GET'])
+@require_auth
+def get_warranties():
+    """Get all warranty records"""
+    try:
+        if not warranty_service:
+            return jsonify({
+                'success': False,
+                'message': 'Warranty service not available'
+            }), 503
+        
+        result = warranty_service.get_all_warranties()
+        
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 500
+            
+    except Exception as e:
+        logger.error(f"Error fetching warranties: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error',
+            'error': str(e)
+        }), 500
+
+@app.route('/api/warranties/<serial_number>', methods=['GET'])
+@require_auth
+def get_warranty(serial_number):
+    """Get warranty by serial number"""
+    try:
+        if not warranty_service:
+            return jsonify({
+                'success': False,
+                'message': 'Warranty service not available'
+            }), 503
+        
+        result = warranty_service.get_warranty_by_serial(serial_number)
+        
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 404
+            
+    except Exception as e:
+        logger.error(f"Error fetching warranty: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error',
+            'error': str(e)
+        }), 500
+
+@app.route('/api/warranties', methods=['POST'])
+@require_auth
+def create_warranty():
+    """Create a new warranty record"""
+    try:
+        if not warranty_service:
+            return jsonify({
+                'success': False,
+                'message': 'Warranty service not available'
+            }), 503
+        
+        warranty_data = request.get_json()
+        
+        if not warranty_data:
+            return jsonify({
+                'success': False,
+                'message': 'No warranty data provided'
+            }), 400
+        
+        result = warranty_service.create_warranty(warranty_data)
+        
+        if result['success']:
+            return jsonify(result), 201
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        logger.error(f"Error creating warranty: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error',
+            'error': str(e)
+        }), 500
+
+@app.route('/api/warranties/<warranty_id>', methods=['PUT'])
+@require_auth
+def update_warranty(warranty_id):
+    """Update an existing warranty record"""
+    try:
+        if not warranty_service:
+            return jsonify({
+                'success': False,
+                'message': 'Warranty service not available'
+            }), 503
+        
+        warranty_data = request.get_json()
+        
+        if not warranty_data:
+            return jsonify({
+                'success': False,
+                'message': 'No warranty data provided'
+            }), 400
+        
+        result = warranty_service.update_warranty(warranty_id, warranty_data)
+        
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        logger.error(f"Error updating warranty: {str(e)}")
         return jsonify({
             'success': False,
             'message': 'Internal server error',
