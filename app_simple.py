@@ -2,7 +2,7 @@
 Simplified Flask app with JWT auth for admin
 """
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 from config import Config
