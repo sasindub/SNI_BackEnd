@@ -59,8 +59,8 @@ def check_warranty():
         
         warranty = result['warranty']
         
-        # Check if warranty is active
-        if warranty['warranty_status'] != 'Active':
+        # Check if warranty is active or expired (both can view details)
+        if warranty['warranty_status'] not in ['Active', 'Expired']:
             return jsonify({
                 'success': False,
                 'message': f'Warranty is not active for serial number {serial_number}',
@@ -69,7 +69,7 @@ def check_warranty():
                 'requires_passcode': False
             }), 200
         
-        # Warranty exists and is active - ask for passcode
+        # Warranty exists and is active/expired - ask for passcode
         return jsonify({
             'success': True,
             'message': 'Warranty found. Please enter passcode to view details.',
