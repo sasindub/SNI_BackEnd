@@ -11,15 +11,23 @@ class EmailService:
         # Get API key from environment or config
         api_key = Config.SENDGRID_API_KEY
         if not api_key:
-            raise ValueError("SENDGRID_API_KEY is not set. Please set it in your environment variables.")
-        
-        self.sg = sendgrid.SendGridAPIClient(api_key=api_key)
-        # Use a verified sender email from SendGrid
-        self.from_email = Email("sasindub01@gmail.com", Config.FROM_NAME)
+            logger.warning("SENDGRID_API_KEY is not set. Email functionality will be disabled.")
+            logger.warning("To enable emails, set SENDGRID_API_KEY in your .env file or environment variables.")
+            self.sg = None
+            self.from_email = None
+        else:
+            self.sg = sendgrid.SendGridAPIClient(api_key=api_key)
+            # Use a verified sender email from SendGrid
+            self.from_email = Email("sasindub01@gmail.com", Config.FROM_NAME)
     
     def send_order_confirmation(self, customer_data, product_data, order_id):
         """Send order confirmation email to customer"""
         try:
+            # Check if SendGrid is configured
+            if not self.sg:
+                logger.warning("SendGrid not configured, skipping customer email")
+                return {'success': False, 'message': 'Email service not configured'}
+            
             # Check if customer has email
             if not customer_data.get('email'):
                 logger.warning("No customer email provided, skipping email")
@@ -60,6 +68,11 @@ class EmailService:
     def send_admin_notification(self, customer_data, product_data, order_id):
         """Send order notification email to admin"""
         try:
+            # Check if SendGrid is configured
+            if not self.sg:
+                logger.warning("SendGrid not configured, skipping admin email")
+                return {'success': False, 'message': 'Email service not configured'}
+            
             # Admin email
             to_email = To(Config.ADMIN_EMAIL)
             
