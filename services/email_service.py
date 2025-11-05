@@ -138,7 +138,7 @@ class EmailService:
                         <p><strong>Color:</strong> {product_data['selectedColor']}</p>
                         <p><strong>Memory:</strong> {product_data['selectedRam']}</p>
                         <p><strong>Storage:</strong> {product_data['selectedStorage']}</p>
-                        <p><strong>Total Price:</strong> <span class="highlight">${product_data['finalPrice']:,}</span></p>
+                        <p><strong>Total Price:</strong> <span class="highlight">${product_data.get('finalPrice', 0):,}</span></p>
                     </div>
                     
                     <h2>Shipping Information</h2>
@@ -175,7 +175,7 @@ class EmailService:
         - Color: {product_data['selectedColor']}
         - Memory: {product_data['selectedRam']}
         - Storage: {product_data['selectedStorage']}
-        - Total Price: ${product_data['finalPrice']:,}
+        - Total Price: ${product_data.get('finalPrice', 0):,}
         
         Shipping Information:
         - Name: {customer_data['firstName']} {customer_data['lastName']}
@@ -227,7 +227,7 @@ class EmailService:
                         <p><strong>Color:</strong> {product_data['selectedColor']}</p>
                         <p><strong>Memory:</strong> {product_data['selectedRam']}</p>
                         <p><strong>Storage:</strong> {product_data['selectedStorage']}</p>
-                        <p><strong>Total Price:</strong> <span class="highlight">${product_data['finalPrice']:,}</span></p>
+                        <p><strong>Total Price:</strong> <span class="highlight">${product_data.get('finalPrice', 0):,}</span></p>
                     </div>
                     
                     <h2>Customer Information</h2>
@@ -259,7 +259,7 @@ class EmailService:
         - Color: {product_data['selectedColor']}
         - Memory: {product_data['selectedRam']}
         - Storage: {product_data['selectedStorage']}
-        - Total Price: ${product_data['finalPrice']:,}
+        - Total Price: ${product_data.get('finalPrice', 0):,}
         
         Customer Information:
         - Name: {customer_data['firstName']} {customer_data['lastName']}
