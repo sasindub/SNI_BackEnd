@@ -17,13 +17,9 @@ app.config.from_object(Config)
 # Fix for Railway's reverse proxy
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-# Simple CORS - allow everything for all API routes
+# Simple CORS - allow everything for all routes
 CORS(app, 
-     resources={
-         r"/api/admin/*": {"origins": "*"},
-         r"/api/warranty/*": {"origins": "*"},  # Public warranty checker
-         r"/api/orders/*": {"origins": "*"}     # Order submission
-     },
+     resources={r"/api/*": {"origins": "*"}},
      allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
      expose_headers=["Content-Type"],
