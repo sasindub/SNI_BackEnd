@@ -8,6 +8,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from config import Config
 from admin_routes import admin_bp
 from public_warranty_routes import warranty_public_bp
+from order_routes import order_bp
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -16,12 +17,9 @@ app.config.from_object(Config)
 # Fix for Railway's reverse proxy
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-# Simple CORS - allow everything for all API routes
+# Simple CORS - allow everything for all routes
 CORS(app, 
-     resources={
-         r"/api/admin/*": {"origins": "*"},
-         r"/api/warranty/*": {"origins": "*"}  # Public warranty checker
-     },
+     resources={r"/api/*": {"origins": "*"}},
      allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
      expose_headers=["Content-Type"],
@@ -42,6 +40,7 @@ def handle_preflight():
 # Register blueprints
 app.register_blueprint(admin_bp)
 app.register_blueprint(warranty_public_bp)
+app.register_blueprint(order_bp)
 
 # Health check
 @app.route('/api/health', methods=['GET'])
