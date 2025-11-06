@@ -63,7 +63,7 @@ class DatabaseService:
             self.initialize_default_admin()
             
             # Initialize sample warranties if collection is empty
-            self.initialize_sample_warranties()
+            # self.initialize_sample_warranties()  # Commented out - no auto-seed data
             
         except Exception as e:
             logger.error(f"Error initializing collections: {str(e)}")
@@ -163,6 +163,7 @@ class DatabaseService:
         if self.client:
             self.client.close()
             logger.info("Database connection closed")
+
 
 
 
