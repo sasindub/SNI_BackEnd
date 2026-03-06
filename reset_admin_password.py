@@ -37,7 +37,7 @@ def reset_admin_password():
             print("\n3. Creating new admin user...")
             
             # Create new admin
-            password = "Admin123"
+            password = "Softnet@#2G26#!%"
             hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
             
             admin_user = {
@@ -52,8 +52,8 @@ def reset_admin_password():
             print(f"   [OK] Admin user found with ID: {admin['_id']}")
             
             # Reset password
-            print("\n3. Resetting password to 'Admin123'...")
-            password = "Admin123"
+            print("\n3. Resetting password to 'Softnet@#2G26#!%'...")
+            password = "Softnet@#2G26#!%"
             hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
             
             admin_users.update_one(
@@ -65,7 +65,7 @@ def reset_admin_password():
         # Verify the password works
         print("\n4. Verifying password...")
         admin = admin_users.find_one({'username': 'Admin'})
-        test_password = "Admin123"
+        test_password = "Softnet@#2G26#!%"
         
         if bcrypt.checkpw(test_password.encode('utf-8'), admin['password']):
             print("   [OK] Password verification successful!")
@@ -78,7 +78,7 @@ def reset_admin_password():
         print("=" * 60)
         print("\nLogin Credentials:")
         print("  Username: Admin")
-        print("  Password: Admin123")
+        print("  Password: Softnet@#2G26#!%")
         print("\nYou can now login at: http://localhost:3000/admin")
         print("=" * 60)
         
